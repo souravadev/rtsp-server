@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RTSP Video Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3.2l4.4-2.9A1 1 0 0 1 22 7.1v9.8a1 1 0 0 1-1.6.8L16 14.8V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
+      <h1>RTSP Video Panel</h1>
+    </div>
+    <span id="server-status" class="pill pill-muted">Checking server…</span>
+  </header>
+
+  <main>
+    <section id="dropzone" class="dropzone" tabindex="0">
+      <input id="file-input" type="file" accept="video/*,.mkv,.mov,.avi,.ts,.flv,.webm" multiple hidden>
+      <p class="dz-title">Drop videos here or <button type="button" id="browse" class="link">browse</button></p>
+      <p class="dz-hint">Each upload becomes a looping RTSP stream. Formats that don't work over RTSP are converted to H.264/AAC.</p>
+      <ul id="uploads" class="uploads"></ul>
+    </section>
+
+    <section class="list">
+      <div class="list-head">
+        <h2>Streams</h2>
+        <span id="count" class="muted"></span>
+      </div>
+      <div id="empty" class="empty" hidden>No videos yet. Upload one to get started.</div>
+      <div id="videos" class="cards"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

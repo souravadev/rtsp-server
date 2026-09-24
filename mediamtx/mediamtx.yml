@@ -1,0 +1,44 @@
+# MediaMTX configuration. Keys that are not set here keep MediaMTX defaults.
+# Stream paths are not defined here: the panel registers them at runtime
+# through the control API (see panel/app/reconciler.py).
+
+logLevel: info
+
+# Control API, used by the panel. Not published to the host in docker-compose.yml.
+api: yes
+apiAddress: :9997
+
+rtsp: yes
+rtspAddress: :8556
+rtpAddress: :8000
+rtcpAddress: :8001
+
+# HLS is used only for the in-browser preview in the panel.
+hls: yes
+hlsAddress: :8890
+
+rtmp: no
+webrtc: yes
+srt: no
+
+authMethod: internal
+authInternalUsers:
+  # Anyone can watch.
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+      - action: playback
+  # Only the ffmpeg processes spawned inside this container can publish.
+  - user: any
+    pass:
+    ips: ["127.0.0.1", "::1"]
+    permissions:
+      - action: publish
+  # The control API is reachable from private networks (the compose network).
+  - user: any
+    pass:
+    ips: ["127.0.0.1", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+    permissions:
+      - action: api

@@ -1,0 +1,35 @@
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1-ffmpeg
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
+      - videos:/videos:ro
+    ports:
+      - "${RTSP_PORT:-8556}:8556"
+      - "8000:8000/udp"
+      - "8001:8001/udp"
+      - "${HLS_PORT:-8890}:8890"
+
+  panel:
+    build: ./panel
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+    environment:
+      MEDIAMTX_API: http://mediamtx:9997
+      VIDEOS_DIR: /videos
+      MEDIAMTX_VIDEOS_DIR: /videos
+      PUBLIC_RTSP_PORT: ${RTSP_PORT:-8556}
+      PUBLIC_HLS_PORT: ${HLS_PORT:-8890}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-4096}
+      TRANSCODE_CONCURRENCY: ${TRANSCODE_CONCURRENCY:-1}
+      PANEL_USER: ${PANEL_USER:-}
+      PANEL_PASSWORD: ${PANEL_PASSWORD:-}
+    volumes:
+      - videos:/videos
+    ports:
+      - "${PANEL_PORT:-8020}:8020"
+
+volumes:
+  videos:
