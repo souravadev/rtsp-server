@@ -3,7 +3,7 @@
 Upload video files in a web panel. Each video is served as a looping, live RTSP stream.
 
 - **Web panel** (FastAPI and vanilla JS) at `http://localhost:8020`. Use it to upload, rename, enable or disable, preview and delete streams.
-- **RTSP server** ([MediaMTX](https://github.com/bluenviron/mediamtx)) at `rtsp://localhost:8554/<stream-name>`.
+- **RTSP server** ([MediaMTX](https://github.com/bluenviron/mediamtx)) at `rtsp://localhost:8556/<stream-name>`.
 - Both run in containers via Docker Compose.
 
 ## Quick start
@@ -17,14 +17,14 @@ open http://localhost:8020
 Drop a video into the panel. When it shows **Ready**, play it:
 
 ```sh
-ffplay -rtsp_transport tcp rtsp://localhost:8554/<stream-name>
+ffplay -rtsp_transport tcp rtsp://localhost:8556/<stream-name>
 # or VLC: Media → Open Network Stream
 ```
 
 ## How it works
 
 ```
- browser ──HTTP :8090──► panel ──control API :9997──► mediamtx ◄──RTSP :8554── clients
+ browser ──HTTP :8020──► panel ──control API :9997──► mediamtx ◄──RTSP :8556── clients
                            │ writes                      │ spawns ffmpeg (reads)
                            └────────► [videos volume] ◄──┘
 ```
@@ -44,13 +44,33 @@ ffplay -rtsp_transport tcp rtsp://localhost:8554/<stream-name>
 | Variable | Default | Purpose |
 |---|---|---|
 | `PANEL_PORT` | `8020` | Web panel port on the host |
-| `RTSP_PORT` | `8554` | RTSP port on the host |
-| `HLS_PORT` | `8890` | HLS port used by the panel's Preview button |
+| `RTSP_PORT` | `8556` | RTSP port on the host |
+| `HLS_PORT` | `8890` | HLS player port (the panel's **HLS** button) |
+| `WEBRTC_PORT` | `8891` | WebRTC player and WHEP port (the panel's **Preview** button) |
+| `WEBRTC_HOSTS` | `127.0.0.1` | Comma-separated IPs or hostnames that browsers use to reach WebRTC media |
 | `PANEL_USER` / `PANEL_PASSWORD` | empty | Turns on HTTP Basic auth for the panel when set |
 | `MAX_UPLOAD_MB` | `4096` | Upload size limit |
 | `TRANSCODE_CONCURRENCY` | `1` | Number of uploads converted in parallel |
 
 RTSP over UDP uses ports `8000/udp` and `8001/udp`. Clients that have trouble with UDP through NAT can use TCP (`-rtsp_transport tcp`).
+
+### WebRTC
+
+Each stream can also be played in a browser over WebRTC, with sub-second latency:
+
+- **Player page:** `http://<host>:8891/<stream-name>/`
+- **WHEP endpoint:** `http://<host>:8891/<stream-name>/whep`, for embedding the stream in your own page or app.
+
+WebRTC signalling runs over HTTP on `8891`. Media goes over `8190/udp`, or `8190/tcp` as a fallback. In Docker, MediaMTX can't discover the host's address on its own, so set `WEBRTC_HOSTS` to the address viewers use to reach this machine:
+
+```sh
+WEBRTC_HOSTS=192.168.1.50            # LAN
+WEBRTC_HOSTS=stream.example.com      # public; open 8190/udp+tcp in the firewall
+```
+
+With the default (`127.0.0.1`), WebRTC only works in a browser running on the Docker host itself.
+
+Browsers can't play AAC over WebRTC, so streams from files with AAC audio play **without sound** there. RTSP and HLS still carry the audio. Uploads with Opus audio keep their sound over WebRTC.
 
 ## API
 
@@ -73,7 +93,7 @@ curl -X POST -T clip.mp4 -H 'Content-Type: application/octet-stream' \
 
 - The MediaMTX control API is not exposed to the host.
 - Only ffmpeg processes inside the MediaMTX container can publish streams.
-- Anyone who can reach port 8554 can watch the streams. Firewall the port, or add RTSP credentials in `mediamtx/mediamtx.yml` (`authInternalUsers`), if that matters for you.
+- Anyone who can reach port 8556 can watch the streams. Firewall the port, or add RTSP credentials in `mediamtx/mediamtx.yml` (`authInternalUsers`), if that matters for you.
 - Uploaded videos, pending uploads and the SQLite database live in the `videos` Docker volume. `docker compose down -v` erases them.
 
 ## Project layout

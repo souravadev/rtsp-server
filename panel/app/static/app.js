@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = (sel) => document.querySelector(sel);
-const state = { config: { rtsp_port: 8556, hls_port: 8890, max_upload_bytes: Infinity }, videos: [], editing: null };
+const state = { config: { rtsp_port: 8556, hls_port: 8890, webrtc_port: 8891, max_upload_bytes: Infinity }, videos: [], editing: null };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -20,7 +20,8 @@ function fmtDuration(s) {
 }
 
 const rtspUrl = (v) => `rtsp://${location.hostname}:${state.config.rtsp_port}/${v.stream_name}`;
-const previewUrl = (v) => `${location.protocol}//${location.hostname}:${state.config.hls_port}/${v.stream_name}/`;
+const webrtcUrl = (v) => `${location.protocol}//${location.hostname}:${state.config.webrtc_port}/${v.stream_name}/`;
+const hlsUrl = (v) => `${location.protocol}//${location.hostname}:${state.config.hls_port}/${v.stream_name}/`;
 
 let toastTimer;
 function toast(msg) {
@@ -96,7 +97,8 @@ function card(v) {
         </select>
       </label>
       <span class="spacer"></span>
-      <a class="btn ${ready && v.enabled ? "" : "disabled"}" href="${esc(previewUrl(v))}" target="_blank" rel="noopener">Preview</a>
+      <a class="btn ${ready && v.enabled ? "" : "disabled"}" href="${esc(webrtcUrl(v))}" target="_blank" rel="noopener" title="Low-latency WebRTC player">Preview</a>
+      <a class="btn ${ready && v.enabled ? "" : "disabled"}" href="${esc(hlsUrl(v))}" target="_blank" rel="noopener" title="HLS player (fallback, includes AAC audio)">HLS</a>
       <button data-act="rename" ${editing ? "disabled" : ""}>Rename</button>
       <button class="danger" data-act="delete">Delete</button>
     </div>

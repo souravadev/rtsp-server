@@ -10,6 +10,13 @@ services:
       - "8000:8000/udp"
       - "8001:8001/udp"
       - "${HLS_PORT:-8890}:8890"
+      - "${WEBRTC_PORT:-8891}:8891"
+      # WebRTC media: host and container ports must be identical, because
+      # MediaMTX advertises this port to browsers in its ICE candidates.
+      - "8190:8190/udp"
+      - "8190:8190/tcp"
+    environment:
+      MTX_WEBRTCADDITIONALHOSTS: ${WEBRTC_HOSTS:-127.0.0.1}
 
   panel:
     build: ./panel
@@ -22,6 +29,7 @@ services:
       MEDIAMTX_VIDEOS_DIR: /videos
       PUBLIC_RTSP_PORT: ${RTSP_PORT:-8556}
       PUBLIC_HLS_PORT: ${HLS_PORT:-8890}
+      PUBLIC_WEBRTC_PORT: ${WEBRTC_PORT:-8891}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-4096}
       TRANSCODE_CONCURRENCY: ${TRANSCODE_CONCURRENCY:-1}
       PANEL_USER: ${PANEL_USER:-}

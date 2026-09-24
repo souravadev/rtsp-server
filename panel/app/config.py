@@ -13,6 +13,7 @@ MEDIAMTX_API = os.getenv("MEDIAMTX_API", "http://mediamtx:9997").rstrip("/")
 # Ports shown to users in the UI (as published on the host).
 PUBLIC_RTSP_PORT = int(os.getenv("PUBLIC_RTSP_PORT", "8556"))
 PUBLIC_HLS_PORT = int(os.getenv("PUBLIC_HLS_PORT", "8890"))
+PUBLIC_WEBRTC_PORT = int(os.getenv("PUBLIC_WEBRTC_PORT", "8891"))
 
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_MB", "4096")) * 1024 * 1024
 TRANSCODE_CONCURRENCY = max(1, int(os.getenv("TRANSCODE_CONCURRENCY", "1")))

@@ -85,6 +85,7 @@ async def get_config():
     return {
         "rtsp_port": config.PUBLIC_RTSP_PORT,
         "hls_port": config.PUBLIC_HLS_PORT,
+        "webrtc_port": config.PUBLIC_WEBRTC_PORT,
         "max_upload_bytes": config.MAX_UPLOAD_BYTES,
     }
 

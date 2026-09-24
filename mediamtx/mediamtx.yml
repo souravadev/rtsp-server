@@ -13,12 +13,20 @@ rtspAddress: :8556
 rtpAddress: :8000
 rtcpAddress: :8001
 
-# HLS is used only for the in-browser preview in the panel.
+# Browser playback. WebRTC is the panel's main preview (low latency); HLS is a fallback.
 hls: yes
 hlsAddress: :8890
 
-rtmp: no
 webrtc: yes
+webrtcAddress: :8891
+# Media goes over this single UDP port. The host port must match it (see docker-compose.yml).
+webrtcLocalUDPAddress: :8190
+webrtcLocalTCPAddress: :8190
+# Addresses browsers use to reach the server, overridden by the
+# WEBRTC_HOSTS setting in .env (via MTX_WEBRTCADDITIONALHOSTS).
+webrtcAdditionalHosts: [host.docker.internal, 127.0.0.1]
+
+rtmp: no
 srt: no
 
 authMethod: internal
