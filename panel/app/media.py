@@ -10,6 +10,7 @@ from . import config, db, reconciler
 log = logging.getLogger("panel.media")
 
 # Streams that can be served as-is with `ffmpeg -c copy` over RTSP.
+# B-frames are excluded too: MediaMTX refuses to read them over WebRTC.
 COPY_VIDEO_CODECS = {"h264", "hevc"}
 COPY_PIX_FMTS = {"yuv420p", "yuvj420p"}
 COPY_AUDIO_CODECS = {"aac", "opus"}
@@ -65,6 +66,7 @@ def _ffmpeg_args(info: dict, src: Path, dst: Path) -> list[str]:
     can_copy = (
         v["codec_name"] in COPY_VIDEO_CODECS
         and v.get("pix_fmt") in COPY_PIX_FMTS
+        and v.get("has_b_frames") == 0
         and (a is None or a["codec_name"] in COPY_AUDIO_CODECS)
     )
     args = ["ffmpeg", "-y", "-v", "error", "-i", str(src), "-map", "0:v:0", "-map", "0:a:0?", "-sn", "-dn"]
@@ -74,7 +76,7 @@ def _ffmpeg_args(info: dict, src: Path, dst: Path) -> list[str]:
             args += ["-tag:v", "hvc1"]
     else:
         args += [
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-bf", "0",
             "-c:a", "aac", "-b:a", "128k", "-ac", "2",
         ]
     return args + ["-movflags", "+faststart", str(dst)]
