@@ -49,6 +49,7 @@ async function api(method, path, body) {
 /* ---------- list ---------- */
 
 function statusPill(v) {
+  if (v.status === "queued") return `<span class="pill pill-muted">Queued</span>`;
   if (v.status === "processing") return `<span class="pill pill-warn">Processing</span>`;
   if (v.status === "failed") return `<span class="pill pill-err">Failed</span>`;
   if (!v.enabled) return `<span class="pill pill-muted">Disabled</span>`;

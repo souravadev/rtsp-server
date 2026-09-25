@@ -17,6 +17,7 @@ from starlette.requests import ClientDisconnect
 from . import config, db, media, mediamtx, reconciler
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)  # UI polling would flood the log
 log = logging.getLogger("panel")
 
 STREAM_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -139,7 +140,7 @@ async def upload_video(
         try:
             db.execute(
                 "INSERT INTO videos (id, original_name, stream_name, file, status, size_bytes)"
-                " VALUES (?, ?, ?, ?, 'processing', ?)",
+                " VALUES (?, ?, ?, ?, 'queued', ?)",
                 (video_id, filename, stream_name or _unique_stream_name(filename), f"{video_id}.mp4", size),
             )
         except sqlite3.IntegrityError:

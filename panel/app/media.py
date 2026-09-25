@@ -62,23 +62,25 @@ def summarize(info: dict) -> dict:
 
 
 def _ffmpeg_args(info: dict, src: Path, dst: Path) -> list[str]:
+    # Video and audio are decided separately: re-encoding video is expensive
+    # (hours for long 4K files), so e.g. G.711 audio alone must not force it.
     v, a = _first(info, "video"), _first(info, "audio")
-    can_copy = (
+    copy_video = (
         v["codec_name"] in COPY_VIDEO_CODECS
         and v.get("pix_fmt") in COPY_PIX_FMTS
         and v.get("has_b_frames") == 0
-        and (a is None or a["codec_name"] in COPY_AUDIO_CODECS)
     )
     args = ["ffmpeg", "-y", "-v", "error", "-i", str(src), "-map", "0:v:0", "-map", "0:a:0?", "-sn", "-dn"]
-    if can_copy:
-        args += ["-c", "copy"]
+    if copy_video:
+        args += ["-c:v", "copy"]
         if v["codec_name"] == "hevc":
             args += ["-tag:v", "hvc1"]
     else:
-        args += [
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-bf", "0",
-            "-c:a", "aac", "-b:a", "128k", "-ac", "2",
-        ]
+        args += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-bf", "0"]
+    if a is not None and a["codec_name"] in COPY_AUDIO_CODECS:
+        args += ["-c:a", "copy"]
+    else:
+        args += ["-c:a", "aac", "-b:a", "128k", "-ac", "2"]
     return args + ["-movflags", "+faststart", str(dst)]
 
 
@@ -87,6 +89,7 @@ async def _normalize(video_id: str) -> None:
     dst = config.VIDEOS_DIR / f"{video_id}.mp4"
     tmp = config.VIDEOS_DIR / f".{video_id}.tmp.mp4"
     async with _sem:
+        db.update_video(video_id, status="processing")
         try:
             info = await probe(src)
             if _first(info, "video") is None:
@@ -116,7 +119,7 @@ def start_normalize(video_id: str) -> None:
 
 def resume_pending() -> None:
     """Restart jobs interrupted by a panel restart."""
-    for row in db.query("SELECT id FROM videos WHERE status = 'processing'"):
+    for row in db.query("SELECT id FROM videos WHERE status IN ('queued', 'processing') ORDER BY created_at"):
         if (config.INCOMING_DIR / row["id"]).exists():
             start_normalize(row["id"])
         else:

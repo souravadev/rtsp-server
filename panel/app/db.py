@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS videos (
     original_name TEXT NOT NULL,
     stream_name   TEXT NOT NULL UNIQUE,
     file          TEXT NOT NULL,
-    status        TEXT NOT NULL,          -- processing | ready | failed
+    status        TEXT NOT NULL,          -- queued | processing | ready | failed
     error         TEXT,
     video_codec   TEXT,
     audio_codec   TEXT,
