@@ -48,6 +48,9 @@ ffplay -rtsp_transport tcp rtsp://localhost:8556/<stream-name>
 | `HLS_PORT` | `8890` | HLS player port (the panel's **HLS** button) |
 | `WEBRTC_PORT` | `8891` | WebRTC player and WHEP port (the panel's **Preview** button) |
 | `WEBRTC_HOSTS` | `127.0.0.1` | Comma-separated IPs or hostnames that browsers use to reach WebRTC media |
+| `PLAYBACK_PORT` | `8996` | Archive playback port (time-range requests) |
+| `RECORD_RETENTION` | `6h` | How long archived video is kept before MediaMTX deletes it |
+| `RECORD_SEGMENT_DURATION` | `10m` | Length of each recording segment on disk |
 | `PANEL_USER` / `PANEL_PASSWORD` | empty | Turns on HTTP Basic auth for the panel when set |
 | `MAX_UPLOAD_MB` | `4096` | Upload size limit |
 | `TRANSCODE_CONCURRENCY` | `1` | Number of uploads converted in parallel |
@@ -78,7 +81,7 @@ Browsers can't play AAC over WebRTC, so streams from files with AAC audio play *
 |---|---|---|
 | `GET` | `/api/videos` | Lists videos with their live state (ready, viewers) |
 | `POST` | `/api/videos?filename=<name>[&stream_name=<name>]` | The raw file is the request body |
-| `PATCH` | `/api/videos/{id}` | JSON body with any of: `stream_name`, `enabled`, `mode` (`on_demand` \| `always_on`) |
+| `PATCH` | `/api/videos/{id}` | JSON body with any of: `stream_name`, `enabled`, `mode` (`on_demand` \| `always_on`), `archive` |
 | `DELETE` | `/api/videos/{id}` | Stops the stream and deletes the file |
 | `GET` | `/api/health` | Health check |
 
@@ -88,6 +91,41 @@ Upload with curl:
 curl -X POST -T clip.mp4 -H 'Content-Type: application/octet-stream' \
   "http://localhost:8020/api/videos?filename=clip.mp4&stream_name=cam1"
 ```
+
+## Archive (time-range playback)
+
+Turn **Archive** on for a stream and the server records it, so a client can later ask for
+any window of it rather than only the live edge. The panel shows the URL template to give
+that client:
+
+```
+http://<host>:8996/get?path=<stream>&start={start}&duration={duration}
+```
+
+Substitute `{start}` with an RFC 3339 UTC instant and `{duration}` with whole seconds:
+
+```sh
+curl -o clip.mp4 \
+  "http://localhost:8996/get?path=cam1&start=2026-09-26T07:45:10Z&duration=20"
+```
+
+`GET /list?path=<stream>` on the same port reports what is actually on disk, and the panel
+shows the same thing under each archived stream ("2 segments · 13:15 → 13:17 · kept 6h").
+
+**Archiving forces the stream always-on.** An on-demand stream only publishes while someone
+is watching, so its recording would have a hole wherever nobody was. Switching an archived
+stream back to on demand is refused with a 409; turn the archive off first.
+
+**Recording is what fills disks.** One 2 Mbps stream is ~21 GB/day, thirty is ~648 GB/day.
+`RECORD_RETENTION` defaults to a deliberately short **6h** — raise it once you know the
+volume has room. Recordings live in their own `recordings` Docker volume, separate from
+uploads, and `docker compose down -v` erases them.
+
+> **Browsers cannot play H.265.** Uploads are remuxed rather than re-encoded when they are
+> already H.264 **or H.265**, so an H.265 source is archived as H.265 — which Chrome and
+> Firefox decode as a blank frame, live and archived alike. Measured: an HEVC stream yields
+> 0 decoded frames, the same file in H.264 yields video. If the archive is for a browser,
+> the source must be H.264.
 
 ## Security notes
 

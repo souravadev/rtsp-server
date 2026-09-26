@@ -11,22 +11,37 @@ _client = httpx.AsyncClient(base_url=config.MEDIAMTX_API, timeout=5)
 MANAGED_MARKER = f" -i {config.MEDIAMTX_VIDEOS_DIR}/"
 
 
+def _record_config(video: dict) -> dict:
+    """Recording keys for one path. Always sent, so turning the archive off takes effect."""
+    return {
+        "record": bool(video.get("archive")),
+        "recordPath": f"{config.RECORD_DIR}/%path/%Y-%m-%d_%H-%M-%S-%f",
+        "recordFormat": "fmp4",
+        "recordSegmentDuration": config.RECORD_SEGMENT_DURATION,
+        "recordDeleteAfter": config.RECORD_RETENTION,
+    }
+
+
 def path_config(video: dict) -> dict:
     cmd = (
         "ffmpeg -hide_banner -loglevel error -re -stream_loop -1"
         f"{MANAGED_MARKER}{video['file']}"
         " -c copy -f rtsp -rtsp_transport tcp rtsp://localhost:$RTSP_PORT/$MTX_PATH"
     )
-    if video["mode"] == "always_on":
-        return {"source": "publisher", "runOnInit": cmd, "runOnInitRestart": True, "runOnDemand": ""}
-    return {
-        "source": "publisher",
-        "runOnInit": "",
-        "runOnDemand": cmd,
-        "runOnDemandRestart": True,
-        "runOnDemandStartTimeout": "10s",
-        "runOnDemandCloseAfter": "10s",
-    }
+    # An on-demand path only publishes while someone is watching, so there would be
+    # nothing to record between viewers. Archiving therefore implies always-on.
+    if video["mode"] == "always_on" or video.get("archive"):
+        conf = {"source": "publisher", "runOnInit": cmd, "runOnInitRestart": True, "runOnDemand": ""}
+    else:
+        conf = {
+            "source": "publisher",
+            "runOnInit": "",
+            "runOnDemand": cmd,
+            "runOnDemandRestart": True,
+            "runOnDemandStartTimeout": "10s",
+            "runOnDemandCloseAfter": "10s",
+        }
+    return conf | _record_config(video)
 
 
 def is_managed(conf: dict) -> bool:
@@ -45,6 +60,11 @@ async def list_config_paths() -> dict[str, dict]:
 
 async def list_runtime_paths() -> dict[str, dict]:
     return await _items("/v3/paths/list")
+
+
+async def list_recordings() -> dict[str, dict]:
+    """What is actually on disk, per path. Empty when nothing has been archived yet."""
+    return await _items("/v3/recordings/list")
 
 
 async def add_path(name: str, conf: dict) -> None:

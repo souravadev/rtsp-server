@@ -103,6 +103,9 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
 .error-msg { color: var(--err); background: var(--err-bg); padding: 8px 10px; border-radius: 6px; font-size: 13px; overflow-wrap: anywhere; }
 
 .url-row { display: flex; gap: 8px; align-items: stretch; }
+/* The archive template is a second-class URL: present, but not the one you copy first. */
+.archive-row .url { color: var(--muted); }
+.archive-note { margin-top: -2px; }
 .url {
   flex: 1;
   min-width: 0;

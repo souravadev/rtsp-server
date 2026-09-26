@@ -5,12 +5,16 @@ services:
     volumes:
       - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
       - videos:/videos:ro
+      # Recordings need a writable volume of their own; /videos is read-only here.
+      - recordings:/recordings
     ports:
       - "${RTSP_PORT:-8556}:8556"
       - "8000:8000/udp"
       - "8001:8001/udp"
       - "${HLS_PORT:-8890}:8890"
       - "${WEBRTC_PORT:-8891}:8891"
+      # Playback server: serves a recorded time range as one file.
+      - "${PLAYBACK_PORT:-8996}:9996"
       # WebRTC media: host and container ports must be identical, because
       # MediaMTX advertises this port to browsers in its ICE candidates.
       - "8190:8190/udp"
@@ -30,6 +34,9 @@ services:
       PUBLIC_RTSP_PORT: ${RTSP_PORT:-8556}
       PUBLIC_HLS_PORT: ${HLS_PORT:-8890}
       PUBLIC_WEBRTC_PORT: ${WEBRTC_PORT:-8891}
+      PUBLIC_PLAYBACK_PORT: ${PLAYBACK_PORT:-8996}
+      RECORD_RETENTION: ${RECORD_RETENTION:-6h}
+      RECORD_SEGMENT_DURATION: ${RECORD_SEGMENT_DURATION:-10m}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-4096}
       TRANSCODE_CONCURRENCY: ${TRANSCODE_CONCURRENCY:-1}
       PANEL_USER: ${PANEL_USER:-}
@@ -41,3 +48,4 @@ services:
 
 volumes:
   videos:
+  recordings:

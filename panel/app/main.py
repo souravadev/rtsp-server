@@ -87,8 +87,20 @@ async def get_config():
         "rtsp_port": config.PUBLIC_RTSP_PORT,
         "hls_port": config.PUBLIC_HLS_PORT,
         "webrtc_port": config.PUBLIC_WEBRTC_PORT,
+        "playback_port": config.PUBLIC_PLAYBACK_PORT,
         "max_upload_bytes": config.MAX_UPLOAD_BYTES,
+        "record_retention": config.RECORD_RETENTION,
+        "record_segment_duration": config.RECORD_SEGMENT_DURATION,
     }
+
+
+def _archive_summary(rec: dict | None) -> dict:
+    """What a viewer can actually ask for: the window on disk, not the configured one."""
+    segments = (rec or {}).get("segments") or []
+    starts = sorted(s["start"] for s in segments if s.get("start"))
+    return {"segments": len(segments),
+            "first": starts[0] if starts else None,
+            "last": starts[-1] if starts else None}
 
 
 @app.get("/api/videos")
@@ -99,14 +111,20 @@ async def list_videos():
         server_ok = True
     except Exception:
         runtime, server_ok = {}, False
+    try:
+        recordings = await mediamtx.list_recordings()
+    except Exception:
+        recordings = {}
     for v in videos:
         v["enabled"] = bool(v["enabled"])
+        v["archive"] = bool(v["archive"])
         rt = runtime.get(v["stream_name"])
         v["live"] = {
             "registered": rt is not None,
             "ready": bool(rt and (rt.get("ready") or rt.get("online"))),
             "readers": len(rt.get("readers") or []) if rt else 0,
         }
+        v["recorded"] = _archive_summary(recordings.get(v["stream_name"]))
     return {"server_ok": server_ok, "videos": videos}
 
 
@@ -157,16 +175,28 @@ class VideoPatch(BaseModel):
     stream_name: str | None = None
     enabled: bool | None = None
     mode: Literal["on_demand", "always_on"] | None = None
+    archive: bool | None = None
 
 
 @app.patch("/api/videos/{video_id}")
 async def update_video(video_id: str, patch: VideoPatch):
-    _get_or_404(video_id)
+    current = _get_or_404(video_id)
     fields = patch.model_dump(exclude_none=True)
     if "stream_name" in fields:
         _validate_stream_name(fields["stream_name"])
     if "enabled" in fields:
         fields["enabled"] = int(fields["enabled"])
+    if "archive" in fields:
+        fields["archive"] = int(fields["archive"])
+        # Nothing publishes between viewers on an on-demand path, so an archive would
+        # have holes wherever nobody was watching. Switch the mode with it rather than
+        # recording something the user would have to discover was incomplete.
+        if fields["archive"]:
+            fields["mode"] = "always_on"
+    if fields.get("mode") == "on_demand" and fields.get("archive", current["archive"]):
+        raise HTTPException(409, "Turn the archive off before switching to on demand — "
+                                 "an on-demand stream is only published while someone is "
+                                 "watching, so its recording would have gaps.")
     if fields:
         try:
             db.update_video(video_id, **fields)

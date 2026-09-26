@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = (sel) => document.querySelector(sel);
-const state = { config: { rtsp_port: 8556, hls_port: 8890, webrtc_port: 8891, max_upload_bytes: Infinity }, videos: [], editing: null };
+const state = { config: { rtsp_port: 8556, hls_port: 8890, webrtc_port: 8891, playback_port: 8996, record_retention: "6h", max_upload_bytes: Infinity }, videos: [], editing: null };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -22,6 +22,19 @@ function fmtDuration(s) {
 const rtspUrl = (v) => `rtsp://${location.hostname}:${state.config.rtsp_port}/${v.stream_name}`;
 const webrtcUrl = (v) => `${location.protocol}//${location.hostname}:${state.config.webrtc_port}/${v.stream_name}/`;
 const hlsUrl = (v) => `${location.protocol}//${location.hostname}:${state.config.hls_port}/${v.stream_name}/`;
+
+// The template a client substitutes a time window into. {start} is RFC 3339 UTC,
+// {duration} is whole seconds — the two things MediaMTX's playback server wants.
+const archiveUrl = (v) =>
+  `${location.protocol}//${location.hostname}:${state.config.playback_port}` +
+  `/get?path=${encodeURIComponent(v.stream_name)}&start={start}&duration={duration}`;
+
+function fmtWindow(r) {
+  if (!r || !r.segments) return "nothing recorded yet";
+  const t = (s) => new Date(s).toLocaleString([], { dateStyle: "short", timeStyle: "medium" });
+  const span = r.first === r.last ? t(r.first) : `${t(r.first)} → ${t(r.last)}`;
+  return `${r.segments} segment${r.segments === 1 ? "" : "s"} · ${span}`;
+}
 
 let toastTimer;
 function toast(msg) {
@@ -89,13 +102,23 @@ function card(v) {
       <code class="url" title="${esc(rtspUrl(v))}">${esc(rtspUrl(v))}</code>
       <button data-act="copy">Copy</button>
     </div>
+    ${v.archive ? `
+    <div class="url-row archive-row">
+      <code class="url" title="${esc(archiveUrl(v))}">${esc(archiveUrl(v))}</code>
+      <button data-act="copy-archive">Copy</button>
+    </div>
+    <div class="card-sub archive-note">Archive: ${esc(fmtWindow(v.recorded))} · kept ${esc(state.config.record_retention)}</div>` : ""}
     <div class="controls">
       <label class="switch"><input type="checkbox" data-act="toggle" ${v.enabled ? "checked" : ""} ${ready ? "" : "disabled"}> Enabled</label>
       <label>Mode
-        <select data-act="mode" ${ready ? "" : "disabled"}>
+        <select data-act="mode" ${ready && !v.archive ? "" : "disabled"}
+                title="${v.archive ? "Archiving needs the stream always on" : "When the stream publishes"}">
           <option value="on_demand" ${v.mode === "on_demand" ? "selected" : ""}>On demand</option>
           <option value="always_on" ${v.mode === "always_on" ? "selected" : ""}>Always on</option>
         </select>
+      </label>
+      <label class="switch" title="Record this stream so a time range can be played back later">
+        <input type="checkbox" data-act="archive" ${v.archive ? "checked" : ""} ${ready ? "" : "disabled"}> Archive
       </label>
       <span class="spacer"></span>
       <a class="btn ${ready && v.enabled ? "" : "disabled"}" href="${esc(webrtcUrl(v))}" target="_blank" rel="noopener" title="Low-latency WebRTC player">Preview</a>
@@ -149,6 +172,10 @@ $("#videos").addEventListener("click", async (ev) => {
       try { await navigator.clipboard.writeText(rtspUrl(v)); toast("RTSP URL copied"); }
       catch { toast(rtspUrl(v)); }
       break;
+    case "copy-archive":
+      try { await navigator.clipboard.writeText(archiveUrl(v)); toast("Archive URL template copied"); }
+      catch { toast(archiveUrl(v)); }
+      break;
     case "rename":
       state.editing = id; render();
       break;
@@ -176,6 +203,7 @@ $("#videos").addEventListener("change", (ev) => {
   const id = el.closest(".card")?.dataset.id;
   if (el.dataset.act === "toggle") patch(id, { enabled: el.checked });
   if (el.dataset.act === "mode") patch(id, { mode: el.value });
+  if (el.dataset.act === "archive") patch(id, { archive: el.checked });
 });
 
 $("#videos").addEventListener("keydown", (ev) => {

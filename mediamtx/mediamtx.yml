@@ -26,6 +26,12 @@ webrtcLocalTCPAddress: :8190
 # WEBRTC_HOSTS setting in .env (via MTX_WEBRTCADDITIONALHOSTS).
 webrtcAdditionalHosts: [host.docker.internal, 127.0.0.1]
 
+# Playback server: serves a recorded time range as one continuous file, e.g.
+#   /get?path=<stream>&start=<RFC3339>&duration=<seconds>
+# Recording itself is a per-path setting the panel writes through the control API.
+playback: yes
+playbackAddress: :9996
+
 rtmp: no
 srt: no
 

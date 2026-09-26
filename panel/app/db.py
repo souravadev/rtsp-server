@@ -20,9 +20,13 @@ CREATE TABLE IF NOT EXISTS videos (
     size_bytes    INTEGER,
     enabled       INTEGER NOT NULL DEFAULT 1,
     mode          TEXT NOT NULL DEFAULT 'on_demand',  -- on_demand | always_on
+    archive       INTEGER NOT NULL DEFAULT 0,         -- record to disk for time-range playback
     created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 )
 """
+
+# Columns added after the first release. SQLite has no "ADD COLUMN IF NOT EXISTS".
+MIGRATIONS = [("archive", "ALTER TABLE videos ADD COLUMN archive INTEGER NOT NULL DEFAULT 0")]
 
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
@@ -35,6 +39,10 @@ def init() -> None:
     _conn.row_factory = sqlite3.Row
     _conn.execute("PRAGMA journal_mode=WAL")
     _conn.execute(SCHEMA)
+    have = {r[1] for r in _conn.execute("PRAGMA table_info(videos)")}
+    for column, statement in MIGRATIONS:
+        if column not in have:
+            _conn.execute(statement)
 
 
 def query(sql: str, args: tuple = ()) -> list[dict]:
